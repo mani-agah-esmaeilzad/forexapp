@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="output.css">
+    <script src="https://kit.fontawesome.com/a076d05399.js"></script>
+    <title>Forex App - Account Info</title>
+    <style>
+        /* استایل داخلی برای مد تاریک و روشن */
+        .dark-mode {
+            background-color: rgba(31, 41, 55, 1);
+            color: white;
+        }
+
+        .light-mode {
+            background-color: rgba(255, 255, 255, 1);
+            color: black;
+        }
+
+        .info p {
+            font-size: 18px;
+            margin: 5px 0;
+        }
+
+        .trade-card-info {
+            background-color: rgba(255, 255, 255, 1);
+            padding: 8px;
+            border-radius: 2px;
+            margin-bottom: 10px;
+            width: calc(45% - 10px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            cursor: pointer; /* نشانگر موس را به دست تغییر می‌دهد */
+        }
+
+        .trade-card-info h3 {
+            margin-bottom: 2px;
+            font-size: 18px;
+        }
+
+        .trade-card-info p {
+            font-size: 14px;
+            margin: 1px 0;
+        }
+
+        .trades-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen flex flex-col">
+    <div class="flex-grow p-4">
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 dark:text-white">Forex App</h1>
+            <p class="text-gray-600 dark:text-gray-400">Account info</p>
+        </div>
+
+        <!-- اطلاعات حساب -->
+        <div class="info bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-6">
+            <p><strong>Balance:</strong> <span id="balance">Loading...</span></p>
+            <p><strong>Equity:</strong> <span id="equity">Loading...</span></p>
+            <p><strong>Margin Level:</strong> <span id="margin-level">Loading...</span></p>
+            <p><strong>EQ / BL:</strong> <span id="EQ-BL">Loading...</span></p>
+        </div>
+
+        <!-- کارت‌های معاملات باز -->
+        <div id="trades-list" class="trades-list mb-6"></div>
+    </div>
+
+    <!-- نوار ناوبری پایین -->
+    <nav class="bg-white dark:bg-gray-800 shadow-lg fixed bottom-0 left-0 right-0 flex justify-around p-2 h-16 items-center">
+        <a href="#" class="text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 flex flex-col items-center">
+            <i class="fas fa-home fa-lg"></i>
+            <span class="block text-xs">Info</span>
+        </a>
+        <a href="trade.html" class="text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 flex flex-col items-center">
+            <i class="fas fa-chart-line fa-lg"></i>
+            <span class="block text-xs">Trades</span>
+        </a>
+        <a href="#" class="text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 flex flex-col items-center">
+            <i class="fas fa-history fa-lg"></i>
+            <span class="block text-xs">History</span>
+        </a>
+        <a href="#" class="text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 flex flex-col items-center">
+            <i class="fas fa-cog fa-lg"></i>
+            <span class="block text-xs">Settings</span>
+        </a>
+    </nav>
+
+    <div class="text-center mt-4">
+        <button id="toggleTheme" class="text-sm text-gray-600 dark:text-gray-400">Toggle Dark/Light Mode</button>
+    </div>
+
+    <script>
+        const toggleThemeButton = document.getElementById('toggleTheme');
+        const htmlElement = document.documentElement;
+
+        toggleThemeButton.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+        });
+
+        const balanceEl = document.getElementById("balance");
+        const equityEl = document.getElementById("equity");
+        const marginLevelEl = document.getElementById("margin-level");
+        const tradesListEl = document.getElementById("trades-list");
+        const EQBL = document.getElementById("EQ-BL");
+
+        const ws = new WebSocket("https://a4b4-45-8-19-45.ngrok-free.app");
+
+        ws.onopen = function (event) {
+            console.log("Connected to WebSocket");
+        };
+
+        ws.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            const accountInfo = data.account_info;
+            const trades = data.open_trades;
+
+            balanceEl.textContent = accountInfo.balance.toFixed(2);
+            equityEl.textContent = accountInfo.equity.toFixed(2);
+            marginLevelEl.textContent = accountInfo.margin_level.toFixed(2);
+            EQBL.textContent = ((accountInfo.equity / accountInfo.balance) * 100).toFixed(2) + "%";
+
+            updateTradeCards(trades);
+        };
+
+        ws.onerror = function (event) {
+            console.error("WebSocket error observed:", event);
+        };
+
+        ws.onclose = function (event) {
+            console.log("WebSocket connection closed");
+        };
+
+        function updateTradeCards(trades) {
+            // پاک کردن کارت‌های قبلی
+            tradesListEl.innerHTML = '';
+
+            // شی‌ای برای ذخیره جمع حجم و سود خرید و فروش هر سیمبول
+            const symbolVolumes = {};
+
+            // جمع‌بندی حجم‌ها و سودها برای هر سیمبول
+            trades.forEach(trade => {
+                const symbol = trade.symbol;
+                const volume = trade.volume;
+                const side = trade.trade_type;  // "buy" یا "sell"
+                const profit = trade.profit; // سود هر معامله
+
+                // بررسی وجود داده‌های صحیح
+                console.log(`Processing trade: Symbol=${symbol}, Volume=${volume}, Side=${side}, Profit=${profit}`);
+
+                if (!symbolVolumes[symbol]) {
+                    symbolVolumes[symbol] = { buy: { volume: 0, profit: 0 }, sell: { volume: 0, profit: 0 } };
+                }
+
+                if (side === 0) { // 0 به معنی خرید است
+                    symbolVolumes[symbol].buy.volume += volume;
+                    symbolVolumes[symbol].buy.profit += profit; // اضافه کردن سود خرید
+                } else if (side === 1) { // 1 به معنی فروش است
+                    symbolVolumes[symbol].sell.volume += volume;
+                    symbolVolumes[symbol].sell.profit += profit; // اضافه کردن سود فروش
+                }
+            });
+
+            // ایجاد کارت برای هر سیمبول
+            for (const symbol in symbolVolumes) {
+                const card = document.createElement('div');
+                card.classList.add('trade-card-info');
+
+                card.innerHTML = `
+                    <h3>${symbol}</h3>
+                    <p style="color: blue"><strong>Buy Volume:</strong> ${symbolVolumes[symbol].buy.volume.toFixed(2)}</p>
+                    <p><strong>Buy Profit:</strong> ${symbolVolumes[symbol].buy.profit.toFixed(2)}</p>
+                    <p class="text-red-500"><strong>Sell Volume:</strong> ${symbolVolumes[symbol].sell.volume.toFixed(2)}</p>
+                    <p><strong>Sell Profit:</strong> ${symbolVolumes[symbol].sell.profit.toFixed(2)}</p>
+                    <p><strong>Total Profit:</strong> ${(parseFloat(symbolVolumes[symbol].sell.profit) + parseFloat(symbolVolumes[symbol].buy.profit)).toFixed(2)}</p>
+                `;
+
+                // اضافه کردن رویداد کلیک
+                card.addEventListener('click', () => {
+                    
+                    localStorage.setItem('selectedTrade', JSON.stringify({
+                        symbol: symbol,
+                        volume: symbolVolumes[symbol].buy.volume + symbolVolumes[symbol].sell.volume,
+                        trade_type: symbolVolumes[symbol].buy.volume > 0 ? 0 : 1, // برای نشان دادن نوع معامله
+                        profit: (parseFloat(symbolVolumes[symbol].sell.profit) + parseFloat(symbolVolumes[symbol].buy.profit)).toFixed(2),
+                    }));
+                    window.location.href = 'details.html'; // هدایت به صفحه details.html
+
+                });
+
+                tradesListEl.appendChild(card);
+            }
+        }
+
+    </script>
+</body>
+
+</html>

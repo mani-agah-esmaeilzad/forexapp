@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="output.css">
+    <script src="https://kit.fontawesome.com/a076d05399.js"></script>
+
+    <title>Document</title>
+    <style>
+        .dark-mode {
+            --tw-bg-opacity: 1;
+            background-color: rgba(31, 41, 55, var(--tw-bg-opacity));
+            color: white;
+        }
+
+        .light-mode {
+            --tw-bg-opacity: 1;
+            background-color: rgba(255, 255, 255, var(--tw-bg-opacity));
+            color: black;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen flex flex-col">
+    <div class="flex-grow p-4">
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 dark:text-white">Forex App</h1>
+            <p class="text-gray-600 dark:text-gray-400">Your Trades</p>
+        </div>
+
+        <!-- لیست معاملات به صورت کارت -->
+        <div class="grid grid-cols-1 gap-4">
+            <ul id="trades-list" class="trades"></ul>
+
+
+        </div>
+    </div>
+
+    <!-- نوار ناوبری پایین -->
+    <nav
+        class="bg-white dark:bg-gray-800 shadow-lg fixed bottom-0 left-0 right-0 flex justify-around p-2 h-16 items-center">
+        <a href="./index.html"
+            class="text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 flex flex-col items-center">
+            <i class="fas fa-home fa-lg"></i>
+            <span class="block text-xs">Info</span>
+        </a>
+        <a href="#"
+            class="text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 flex flex-col items-center">
+            <i class="fas fa-chart-line fa-lg"></i>
+            <span class="block text-xs">Trades</span>
+        </a>
+        <a href="#"
+            class="text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 flex flex-col items-center">
+            <i class="fas fa-history fa-lg"></i>
+            <span class="block text-xs">History</span>
+        </a>
+        <a href="#"
+            class="text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 flex flex-col items-center">
+            <i class="fas fa-cog fa-lg"></i>
+            <span class="block text-xs">Settings</span>
+        </a>
+    </nav>
+
+    <div class="text-center mt-4">
+        <button id="toggleTheme" class="text-sm text-gray-600 dark:text-gray-400">Toggle Dark/Light Mode</button>
+    </div>
+
+    <script>
+        const toggleThemeButton = document.getElementById('toggleTheme');
+        const htmlElement = document.documentElement;
+
+        toggleThemeButton.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');  // اضافه یا حذف کلاس 'dark' به تگ <html>
+        });
+
+        const tradesListEl = document.getElementById("trades-list");
+        const ws = new WebSocket("https://a4b4-45-8-19-45.ngrok-free.app");
+
+        ws.onopen = function (event) {
+            console.log("Connected to WebSocket");
+        };
+
+
+        ws.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            const trades = data.open_trades;
+
+            // به‌روزرسانی لیست معاملات
+            tradesListEl.innerHTML = "";  // پاک کردن لیست قبلی
+            trades.forEach(trade => {
+                // بررسی وجود مقادیر و استفاده از جایگزین مناسب در صورت undefined بودن
+                const volume = trade.volume ? trade.volume : 'N/A';
+                const priceOpen = trade.price_open ? trade.price_open.toFixed(2) : 'N/A';
+                const currentPrice = trade.current_price ? trade.current_price.toFixed(2) : 'N/A';
+                const profit = trade.profit !== undefined ? trade.profit.toFixed(2) : 'N/A';
+
+                // ایجاد کارت معامله جدید
+                const tradeCard = `
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition duration-300">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-semibold text-gray-800 dark:text-white">${trade.symbol}</h2>
+                    <span class="text-gray-600 dark:text-gray-400">Ticket: ${trade.ticket}</span>
+                </div>
+                <div class="mt-2">
+                    <p class="text-gray-700 dark:text-gray-300">Volume: <span class="font-bold">${volume}</span></p>
+                    <p class="text-gray-700 dark:text-gray-300">Price Open: <span class="font-bold">${priceOpen}</span></p>
+                    <p class="text-gray-700 dark:text-gray-300">Current Price: <span class="font-bold">${currentPrice}</span></p>
+                    <p class="text-gray-700 dark:text-gray-300">Profit: <span class="font-bold ${profit >= 0 ? 'text-green-500' : 'text-red-500'}">${profit}</span></p>
+                </div>
+            </div>
+        `;
+                tradesListEl.innerHTML += tradeCard;
+            });
+        };
+
+
+        ws.onerror = function (event) {
+            console.error("WebSocket error observed:", event);
+        };
+
+        ws.onclose = function (event) {
+            console.log("WebSocket connection closed");
+        };
+
+    </script>
+</body>
+
+</html>
